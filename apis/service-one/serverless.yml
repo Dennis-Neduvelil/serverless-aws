@@ -1,0 +1,81 @@
+# serverless.yml
+
+service: serviceOne
+
+plugins:
+    - serverless-webpack
+    - serverless-offline-ssm
+    - serverless-offline
+    - serverless-domain-manager
+    - serverless-prune-plugin
+variablesResolutionMode: 20210326
+provider:
+    name: aws
+    runtime: nodejs18.x
+    endpointType: REGIONAL
+    # you can overwrite defaults here
+    stage: ${opt:stage, self:custom.defaultStage}
+    region: ${opt:region, self:custom.defaultRegion}
+    lambdaHashingVersion: 20201221
+    logRetentionInDays: ${self:custom.stages.${self:provider.stage}.logRetentionDays}
+    vpc: ${self:custom.stages.${self:provider.stage}.vpc}
+
+    iamRoleStatements:
+        - Effect: 'Allow'
+          Action:
+              - ssm:DescribeParameters
+              - ssm:GetParameter
+          Resource:
+              - arn:aws:ssm:*:*:*
+
+    environment: ${file(.env.${self:provider.stage, 'local'}.yml):}
+
+functions:
+    exampleFunction:
+        handler: src/handlers/exampleHandler.handler
+        events:
+            - http:
+                  path: v1/endpoint
+                  method: get
+                  cors: true
+custom:
+    webpack:
+        webpackConfig: ./webpack.config.js
+        includeModules:
+            forceExclude:
+                - aws-sdk
+        packager: npm
+        packagerOptions:
+            scripts:
+                - rm -rf node_modules/aws-sdk
+    serverless-offline:
+        httpPort: 4000
+    serverless-offline-ssm:
+        stages:
+            - local
+    defaultRegion: us-west-2
+    defaultStage: local
+    customDomain:
+        domainName: ${self:custom.stages.${self:provider.stage}.domain}
+        basePath: serviceOne
+        stage: ${self:provider.stage}
+        createRoute53Record: true
+    prune:
+        automatic: true
+        number: 5
+    logLevel: ${self:custom.stages.${self:provider.stage}.logLevelMap}
+    stages:
+        local:
+            domain: local
+            logLevelMap: Silly
+            logRetentionDays: 3
+            vpc:
+                securityGroupIds: []
+                subnetIds: []
+        dev:
+            logLevelMap: silly
+            logRetentionDays: 7
+            domain: 'dev-api.domain.com'
+            vpc:
+                securityGroupIds: []
+                subnetIds: []

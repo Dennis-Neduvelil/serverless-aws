@@ -1,0 +1,7 @@
+webpack.*.js
+coverage
+jest.*.js
+commitlint.config.js
+plugins.js
+source-map-install.js
+config/*.ts
